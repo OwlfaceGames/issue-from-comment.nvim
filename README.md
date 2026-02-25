@@ -75,8 +75,6 @@ Add the token directly in your Neovim config (less secure):
 
 ```lua
 require('issue_from_comment').setup({
-  github_owner = "your-github-username",
-  github_repo = "your-repository-name",
   github_token = "your-token-here",
 })
 ```
