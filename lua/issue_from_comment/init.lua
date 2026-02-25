@@ -4,13 +4,40 @@ local M = {}
 -- Configuration variables
 M.config = {
         github_token = os.getenv("GITHUB_TOKEN"),
-        github_owner = nil,
-        github_repo = nil,
-        default_labels = {},
-        default_assignees = {},
         create_key = '<Leader>gc',
         cancel_key = 'q',
 }
+
+-- Path to persist last used values
+local data_path = vim.fn.stdpath("data") .. "/issue_from_comment.json"
+
+-- Load last used values from disk
+local function load_last_used()
+        local f = io.open(data_path, "r")
+        if not f then return nil end
+        local content = f:read("*a")
+        f:close()
+        local ok, data = pcall(vim.fn.json_decode, content)
+        if ok and data then return data end
+        return nil
+end
+
+-- Save last used values to disk
+local function save_last_used(owner, repo_name, labels, assignees)
+        local data = vim.fn.json_encode({
+                owner = owner,
+                repo = repo_name,
+                labels = labels,
+                assignees = assignees,
+        })
+        local f = io.open(data_path, "w")
+        if not f then
+                vim.notify("Failed to save last used issue settings", vim.log.levels.WARN)
+                return
+        end
+        f:write(data)
+        f:close()
+end
 
 -- Set up the plugin with user config
 function M.setup(opts)
@@ -57,34 +84,57 @@ function M.open_issue_buffer(title, original_line)
         local bufnr = vim.api.nvim_create_buf(false, true)
         vim.api.nvim_buf_set_name(bufnr, "GitHub Issue")
 
+        local last = load_last_used()
+
+        local default_owner = (last and last.owner) or ""
+        local default_repo = (last and last.repo) or ""
+
         local default_labels = ""
-        if M.config.default_labels and #M.config.default_labels > 0 then
-                default_labels = table.concat(M.config.default_labels, ", ")
+        if last and last.labels and #last.labels > 0 then
+                default_labels = table.concat(last.labels, ", ")
         end
 
         local default_assignees = ""
-        if M.config.default_assignees and #M.config.default_assignees > 0 then
-                default_assignees = table.concat(M.config.default_assignees, ", ")
+        if last and last.assignees and #last.assignees > 0 then
+                default_assignees = table.concat(last.assignees, ", ")
         end
 
         local create_key = M.config.create_key or '<Leader>gc'
         local cancel_key = M.config.cancel_key or 'q'
 
         local lines = {
-                "GitHub Issue Creation:",
+                "GitHub Issue Creation",
+                "_____________________",
                 "",
-                "Repo (leave blank to use default):",
                 "",
-                "Title:",
+                "Repo Owner",
+                "__________",
+                default_owner,
+                "",
+                "",
+                "Repo",
+                "____",
+                default_repo,
+                "",
+                "",
+                "Title",
+                "_____",
                 title or "",
                 "",
-                "Description:",
                 "",
-                "Labels (comma-separated):",
-                default_labels or "",
+                "Description",
+                "___________",
                 "",
-                "Assignees (comma-separated):",
-                default_assignees or "",
+                "",
+                "Labels (comma-separated)",
+                "________________________",
+                default_labels,
+                "",
+                "",
+                "Assignees (comma-separated)",
+                "___________________________",
+                default_assignees,
+                "",
                 "",
                 string.format("Press %s to create the issue or %s to cancel", create_key, cancel_key)
         }
@@ -92,8 +142,7 @@ function M.open_issue_buffer(title, original_line)
         vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
 
         vim.api.nvim_buf_set_keymap(bufnr, 'n', create_key,
-        string.format(":lua require('issue_from_comment').submit_issue(%d, %d)<CR>",
-        bufnr, vim.api.nvim_get_current_buf()),
+        string.format(":lua require('issue_from_comment').submit_issue(%d)<CR>", bufnr),
         { noremap = true, silent = true })
 
         vim.api.nvim_buf_set_keymap(bufnr, 'n', cancel_key,
@@ -111,8 +160,8 @@ function M.open_issue_buffer(title, original_line)
         vim.bo[bufnr].buftype = "nofile"
         vim.bo[bufnr].swapfile = false
 
-        -- Put cursor in repo section
-        vim.api.nvim_win_set_cursor(0, { 4, 0 })
+        -- Put cursor on repo owner field
+        vim.api.nvim_win_set_cursor(0, { 6, 0 })
 end
 
 -- Create GitHub issue via API
@@ -131,7 +180,7 @@ function M.create_github_issue(title, description, labels, assignees, issue_bufn
                         end
 
                         if not owner or not repo_name then
-                                vim.notify("GitHub owner or repo is not set. Please configure them in your setup.", vim.log.levels.ERROR)
+                                vim.notify("GitHub owner or repo is not set.", vim.log.levels.ERROR)
                                 return
                         end
 
@@ -160,6 +209,7 @@ function M.create_github_issue(title, description, labels, assignees, issue_bufn
                                                 local success, json = pcall(vim.fn.json_decode, response)
 
                                                 if success and json.number then
+                                                        save_last_used(owner, repo_name, labels, assignees)
                                                         M.update_original_comment(issue_bufnr, json.number)
                                                         vim.notify(string.format("Issue #%d created successfully!", json.number), vim.log.levels.INFO)
                                                         vim.api.nvim_buf_delete(issue_bufnr, { force = true })
@@ -191,12 +241,15 @@ function M.submit_issue(issue_bufnr)
         local description = ""
         local labels = {}
         local assignees = {}
-        local repo = ""
+        local owner = ""
+        local repo_name = ""
 
         local current_section = nil
 
         for _, line in ipairs(lines) do
-                if line:match("^Repo") then
+                if line:match("^Repo Owner") then
+                        current_section = "repo_owner"
+                elseif line:match("^Repo") then
                         current_section = "repo"
                 elseif line:match("^Title") then
                         current_section = "title"
@@ -206,10 +259,12 @@ function M.submit_issue(issue_bufnr)
                         current_section = "labels"
                 elseif line:match("^Assignees") then
                         current_section = "assignees"
-                elseif line:match("^Press") or line:match("^GitHub Issue Creation") then
+                elseif line:match("^─+") or line:match("^═+") or line:match("^Press") or line:match("^GitHub Issue Creation") then
                         -- skip UI lines
+                elseif current_section == "repo_owner" and line ~= "" then
+                        owner = line
                 elseif current_section == "repo" and line ~= "" then
-                        repo = line
+                        repo_name = line
                 elseif current_section == "title" and line ~= "" then
                         title = line
                 elseif current_section == "description" and line ~= "" then
@@ -236,16 +291,9 @@ function M.submit_issue(issue_bufnr)
                 return
         end
 
-        local owner, repo_name
-        if repo ~= "" then
-                owner, repo_name = repo:match("^([^/]+)/(.+)$")
-                if not owner or not repo_name then
-                        vim.notify("Repo must be in owner/repo format", vim.log.levels.ERROR)
-                        return
-                end
-        else
-                owner = M.config.github_owner
-                repo_name = M.config.github_repo
+        if not owner or owner == "" or not repo_name or repo_name == "" then
+                vim.notify("Repo owner and repo name must be set", vim.log.levels.ERROR)
+                return
         end
 
         M.create_github_issue(title, description, labels, assignees, issue_bufnr, owner, repo_name)
