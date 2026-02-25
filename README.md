@@ -1,41 +1,8 @@
-
 # Issue From Comment
 
 A Neovim plugin that allows you to create GitHub issues directly from comments. Simply position your cursor on a comment line, run the command via a custom keybind or by typing ":GHIssueFromComment", and the plugin will extract the comment text as an issue title, open a buffer to edit details, create the issue, and update the original comment with the issue number.
 
 ![](https://github.com/OwlfaceGames/issue-from-comment/blob/master/issue%20from%20comment%20example.gif?raw=true)
-
-## Introduction
-Hi, I'm Nick. I've been making games on and off for 10+ years. However I'm actually kinda new to posting things publicly on github as in the gamedev world to be honest we don't really do that. Anyway excuse me if I fall short with any gh etiquette.
-
-This is my first public repo.
-
-Enough jibber jabber. Allow me to introduce my plugin.
-
-As well as being new to posting on gh I am also pretty new to neovim. However after working with it for several months now it has officially become my editor of choice and I have been using it extensively when working on my next game.
-
-I love neovim, it's features and community. Despite this there is one thing that I used to do all the time in vscode that I just haven't been able to find a good replacement for in neovim. The ability to create a gh issue directly from a TODO comment then automatically add the issue number to the comment. That's what this plugin does. Even though I work solo I rely heavily on gh issues and projects to manage my work and being able to create issues quickly from my editor and have them tied to a specific line via an issue number is essential for my workflow.
-
-Everything this plugin does can be mapped to a couple of keystrokes.
-
-Anyhoo I created this plugin for myself and if I decide it needs some new features I will add them also for myself.
-
-So far I am absolutely loving using it so I figured why not share it and see if other people get something out of it too.
-
-Enjoy,
-
-Nick <3
-
-## Say Hi
-If you end up using the plugin please [say hi](https://github.com/OwlfaceGames/issue-from-comment.nvim/discussions/2) in the discussion thread or simply reply to [this poll](https://github.com/OwlfaceGames/issue-from-comment.nvim/discussions/3).
-
-With there being no way to know how many people (if any) use the plugin this is the only way other than stars I can really gauge interest.
-
-Stars are of course always appreciated too.
-
-Also if you'd rather let me know you're using the plugin/give me feedback via the discord I created a discord server for that very purpose.
-
-You can [join the discord here](https://discord.gg/974zmDPpg7).
 
 ## Features
 
