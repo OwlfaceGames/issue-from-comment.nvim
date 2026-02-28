@@ -52,7 +52,7 @@ end
 function M.create_issue_from_comment()
     local line = vim.api.nvim_get_current_line()
     local line_nr = vim.api.nvim_win_get_cursor(0)[1]
-    local filename = vim.fn.expand("%:t")
+    local filename = vim.fn.expand("%:.")
 
     local comment_text = nil
 
